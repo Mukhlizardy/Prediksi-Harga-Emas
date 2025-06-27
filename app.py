@@ -1,4 +1,5 @@
 import re
+import pandas as pd
 import numpy as np
 from flask import Flask, render_template, request, send_file
 import os
@@ -101,36 +102,58 @@ def process():
     figg=px.line(dc,y=['ytrain','trainpred'])
     gJSON = json.dumps(figg, cls=plotly.utils.PlotlyJSONEncoder)
     return render_template('process.html',w1=w1.to_html(classes='table table-bordered table-striped table-hover'),w2=w2.to_html(classes='table table-bordered table-striped table-hover'),b1=b1.to_html(classes='table table-bordered table-striped table-hover'),b2=b2.to_html(classes='table table-bordered table-striped table-hover'),wb1=wb1.to_html(classes='table table-bordered table-striped table-hover'),wb2=wb2.to_html(classes='table table-bordered table-striped table-hover'),bb1=bb1.to_html(classes='table table-bordered table-striped table-hover'),bb2=bb2.to_html(classes='table table-bordered table-striped table-hover'), graphJSON=graphJSON, nmse=nmse)
-@app.route("/predict", methods=['GET','POST'])
+@app.route("/predict", methods=['GET', 'POST'])
 def predict():
-    if request.method =='POST':
-        open=float(request.form['open'])
-        high=float(request.form['high'])
-        low=float(request.form['low'])                                                        
-        volume=float(request.form['volume'])
-        q=[open, high, low, volume]
-        q=pd.DataFrame(q).T
-        q.columns=['Open', 'High', 'Low', 'Volume']
-        d=(q-dataclear.min())/(dataclear.max()-dataclear.min())
-        a=np.array(d.drop(columns=['Close']))
-        test = nn.predict(a)
-        hasil= test*(dataclear['Close'].max()-dataclear['Close'].min())+dataclear['Close'].min()
-        
-        if volume==0 or high==0 or open==0 or low==0:
-            hasil='Gold Market Closed'
-        elif volume<0 or high<0 or open<0 or low<0:
-            hasil='Harga tidak mungkin bernilai negatif'
-        elif high<low:
-            hasil='High harus lebih besar dari low'
-        elif open<low:
-            hasil='Open harus lebih besar atau sama dengan low'
-        elif open>high:
-            hasil='Open harus lebih kecil atau sama dengan high'
-        else:
-            hasil = round(float(hasil[0][0]), 1)
-        
-        return render_template('predict.html',hasil=hasil, nmse_test=nmse_test)
-    return render_template('predict.html')
+    hasil = None
+    error = None
+
+    if request.method == 'POST':
+        if 'file' not in request.files:
+            error = 'File tidak ditemukan.'
+            return render_template('predict.html', error=error)
+
+        file = request.files['file']
+
+        if file.filename == '':
+            error = 'Tidak ada file yang dipilih.'
+            return render_template('predict.html', error=error)
+
+        try:
+            df = pd.read_excel(file)
+            required_columns = ['Open', 'High', 'Low', 'Volume']
+            if not all(col in df.columns for col in required_columns):
+                error = f"Kolom Excel harus mengandung: {', '.join(required_columns)}"
+                return render_template('predict.html', error=error)
+
+            pred_results = []
+
+            for idx, row in df.iterrows():
+                open_, high, low, volume = row['Open'], row['High'], row['Low'], row['Volume']
+
+                if any(v <= 0 for v in [open_, high, low, volume]):
+                    pred = 'Data tidak valid (nilai ≤ 0)'
+                elif high < low:
+                    pred = 'High harus lebih besar dari Low'
+                elif open_ < low:
+                    pred = 'Open harus ≥ Low'
+                elif open_ > high:
+                    pred = 'Open harus ≤ High'
+                else:
+                    q = pd.DataFrame([[open_, high, low, volume]], columns=required_columns)
+                    d = (q - dataclear.min()) / (dataclear.max() - dataclear.min())
+                    a = np.array(d[['Open', 'High', 'Low', 'Volume']])
+                    pred_val = nn.predict(a)
+                    pred = round(float(pred_val[0][0] * (dataclear['Close'].max() - dataclear['Close'].min()) + dataclear['Close'].min()), 1)
+
+                pred_results.append(pred)
+
+            df['Prediksi Close'] = pred_results
+            hasil = df.to_html(classes='table table-striped', index=False)
+
+        except Exception as e:
+            error = f'Terjadi kesalahan: {str(e)}'
+
+    return render_template('predict.html', hasil=hasil, error=error, nmse_test=nmse_test if 'nmse_test' in globals() else None)
 
 if __name__ == "__main__":
     app.run(debug=True)
