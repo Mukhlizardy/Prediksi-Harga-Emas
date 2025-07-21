@@ -54,11 +54,15 @@ class NeuralNet():
         '''
         Initialize the weights from a random normal distribution
         '''
-        np.random.seed(1) # Seed the random number generator
-        self.params["W1"] = np.random.randn(self.layers[0], self.layers[1]) 
-        self.params['b1'] = np.random.randn(self.layers[1],)
-        self.params['W2'] = np.random.randn(self.layers[1],self.layers[2]) 
-        self.params['b2'] = np.random.randn(self.layers[2],)
+        np.random.seed(None) # Seed the random number generator
+        self.params["W1"] = np.random.randn(self.layers[0], self.layers[1]) * np.sqrt(1.0 / self.layers[0])
+        self.params['b1'] = np.zeros(self.layers[1])
+        self.params["W2"] = np.random.randn(self.layers[1], self.layers[2]) * np.sqrt(1.0 / self.layers[1])
+        self.params['b2'] = np.zeros(self.layers[2])
+        #self.params["W1"] = np.random.randn(self.layers[0], self.layers[1]) 
+        #self.params['b1'] = np.random.randn(self.layers[1],)
+        #self.params['W2'] = np.random.randn(self.layers[1],self.layers[2]) 
+        #self.params['b2'] = np.random.randn(self.layers[2],)
         '''
         print(self.params['W1'])
         print(self.params['b1'])
