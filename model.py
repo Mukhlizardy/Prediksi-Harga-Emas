@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import datetime
 
 def loadData():
-    emas= pd.read_csv('D:/Prediksi/static/data.csv')
+    emas= pd.read_csv('D:/Prediksi-Harga-Emas/static/data.csv')
     data=pd.DataFrame(emas)
     return data
 def normData(data):
